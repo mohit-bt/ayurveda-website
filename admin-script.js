@@ -17,11 +17,13 @@ class AdminPanel {
         this.deleteModal = document.getElementById('deleteModal');
         this.profileModal = document.getElementById('profileModal');
         this.adminPanel = document.getElementById('adminPanel');
+        this.passwordChangeModal = document.getElementById('passwordChangeModal');
         
         // Forms
         this.loginForm = document.getElementById('loginForm');
         this.productForm = document.getElementById('productForm');
         this.profileForm = document.getElementById('profileForm');
+        this.passwordChangeForm = document.getElementById('passwordChangeForm');
         
         // Tables
         this.productsTable = document.getElementById('productsTable');
@@ -38,6 +40,9 @@ class AdminPanel {
         this.cancelProfileBtn = document.getElementById('cancelProfileBtn');
         this.addDetailBtn = document.getElementById('addDetailBtn');
         this.passwordToggle = document.getElementById('passwordToggle');
+        this.changePasswordBtn = document.getElementById('changePasswordBtn');
+        this.closePasswordModalBtn = document.getElementById('closePasswordModalBtn');
+        this.cancelPasswordBtn = document.getElementById('cancelPasswordModalBtn');
         
         // Other elements
         this.totalProducts = document.getElementById('totalProducts');
@@ -63,6 +68,7 @@ class AdminPanel {
         this.refreshBtn.addEventListener('click', () => this.loadProducts());
         this.productForm.addEventListener('submit', (e) => this.handleProductSubmit(e));
         this.profileForm.addEventListener('submit', (e) => this.handleProfileSubmit(e));
+        this.passwordChangeForm.addEventListener('submit', (e) => this.handlePasswordChange(e));
         
         // Modal controls
         this.closeModalBtn.addEventListener('click', () => this.hideProductModal());
@@ -80,6 +86,11 @@ class AdminPanel {
         // Delete confirmation
         document.getElementById('cancelDeleteBtn').addEventListener('click', () => this.hideDeleteModal());
         document.getElementById('confirmDeleteBtn').addEventListener('click', () => this.confirmDelete());
+        
+        // Password change
+        this.changePasswordBtn.addEventListener('click', () => this.showPasswordChangeModal());
+        this.closePasswordModalBtn.addEventListener('click', () => this.hidePasswordChangeModal());
+        this.cancelPasswordBtn.addEventListener('click', () => this.hidePasswordChangeModal());
         
         // Close modals on outside click
         window.addEventListener('click', (e) => {
@@ -721,6 +732,71 @@ class AdminPanel {
         this.profile = profile;
     }
 
+    // Password change methods
+    showPasswordChangeModal() {
+        this.passwordChangeModal.classList.add('active');
+        document.getElementById('currentPassword').focus();
+    }
+
+    hidePasswordChangeModal() {
+        this.passwordChangeModal.classList.remove('active');
+        this.passwordChangeForm.reset();
+    }
+
+    async handlePasswordChange(e) {
+        e.preventDefault();
+        
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+            this.showError('New passwords do not match');
+            return;
+        }
+        
+        // Validate password strength
+        if (newPassword.length < 8) {
+            this.showError('Password must be at least 8 characters long');
+            return;
+        }
+        
+        try {
+            const response = await this.authenticatedFetch('/api/auth/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.showSuccess('Password changed successfully! Please login again.');
+                this.hidePasswordChangeModal();
+                
+                // Auto logout after successful password change
+                setTimeout(() => {
+                    this.handleLogout();
+                }, 2000);
+            } else {
+                this.showError(data.error || 'Failed to change password');
+            }
+        } catch (error) {
+            if (error.message === 'Authentication required') {
+                return; // User will be redirected to login
+            }
+            
+            console.error('Password change error:', error);
+            this.showError('Network error. Please try again.');
+        }
+    }
+
     // Helper method for authenticated API requests
     async authenticatedFetch(url, options = {}) {
         if (!this.authToken) {
@@ -752,6 +828,7 @@ class AdminPanel {
         this.productModal.classList.remove('active');
         this.deleteModal.classList.remove('active');
         this.profileModal.classList.remove('active');
+        this.passwordChangeModal.classList.remove('active');
     }
 
     fileToDataURL(file) {

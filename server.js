@@ -350,7 +350,30 @@ app.put('/api/profile', requireAuth, async (req, res) => {
 
 // Simple session management (in production, use proper session store)
 const sessions = new Map();
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Use environment variable in production
+
+// Load admin password from config file or environment
+function loadAdminPassword() {
+    const configPath = path.join(__dirname, 'admin-config.json');
+    
+    try {
+        if (require('fs').existsSync(configPath)) {
+            const config = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
+            console.log('📝 Admin password loaded from config file');
+            return config.adminPassword;
+        }
+    } catch (error) {
+        console.warn('⚠️ Could not load admin config file:', error.message);
+    }
+    
+    // Fallback to environment variable or default
+    const defaultPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    console.log('📝 Using environment/default admin password');
+    return defaultPassword;
+}
+
+let ADMIN_PASSWORD = loadAdminPassword();
+// Make it globally accessible for password changes
+global.ADMIN_PASSWORD = ADMIN_PASSWORD;
 
 // Generate simple session token
 function generateSessionToken() {
@@ -380,7 +403,7 @@ function requireAuth(req, res, next) {
 app.post('/api/auth/login', (req, res) => {
     const { password } = req.body;
     
-    if (password !== ADMIN_PASSWORD) {
+    if (password !== global.ADMIN_PASSWORD) {
         return res.status(401).json({ error: 'Invalid password' });
     }
     
@@ -403,6 +426,43 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
 
 app.get('/api/auth/verify', requireAuth, (req, res) => {
     res.json({ authenticated: true });
+});
+
+// Password change endpoint
+app.post('/api/auth/change-password', requireAuth, (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Verify current password
+    if (currentPassword !== global.ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    
+    // Validate new password
+    if (!newPassword || newPassword.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters long' });
+    }
+    
+    // Update password in memory (for current session)
+    global.ADMIN_PASSWORD = newPassword;
+    
+    // Save to file for persistence
+    const configPath = path.join(__dirname, 'admin-config.json');
+    const config = {
+        adminPassword: newPassword,
+        updatedAt: new Date().toISOString()
+    };
+    
+    try {
+        require('fs').writeFileSync(configPath, JSON.stringify(config, null, 2));
+        
+        // Invalidate all existing sessions to force re-login
+        sessions.clear();
+        
+        res.json({ message: 'Password changed successfully. Please login again.' });
+    } catch (error) {
+        console.error('Failed to save new password:', error);
+        res.status(500).json({ error: 'Failed to save new password' });
+    }
 });
 
 // Error handling middleware

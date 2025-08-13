@@ -29,7 +29,7 @@
                         Login
                     </button>
                 </form>
-                <p class="login-hint">Default password: <strong>admin123</strong></p>
+                <!-- <p class="login-hint">Default password: <strong>admin123</strong></p> -->
             </div>
         </div>
     </div>
@@ -82,6 +82,10 @@
                             <button class="btn btn-secondary" id="editProfileBtn">
                                 <i class="fas fa-user-md"></i>
                                 Edit Profile
+                            </button>
+                            <button class="btn btn-secondary" id="changePasswordBtn">
+                                <i class="fas fa-key"></i>
+                                Change Password
                             </button>
                             <button class="btn btn-secondary" id="refreshBtn">
                                 <i class="fas fa-refresh"></i>
@@ -275,6 +279,40 @@
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i>
                         Save Profile
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordChangeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change Admin Password</h3>
+                <button class="close-btn" id="closePasswordModalBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="passwordChangeForm" class="password-change-form">
+                <div class="form-group">
+                    <label for="currentPassword">Current Password *</label>
+                    <input type="password" id="currentPassword" name="currentPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New Password *</label>
+                    <input type="password" id="newPassword" name="newPassword" required minlength="8">
+                    <small>Minimum 8 characters</small>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="8">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelPasswordBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-key"></i>
+                        Change Password
                     </button>
                 </div>
             </form>
