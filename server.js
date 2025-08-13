@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs').promises;
@@ -250,7 +251,8 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // Add new product
-app.post('/api/products', async (req, res) => {
+// Protected route for adding new product
+app.post('/api/products', requireAuth, async (req, res) => {
     try {
         const products = await readProducts();
         const newProduct = {
@@ -268,7 +270,8 @@ app.post('/api/products', async (req, res) => {
 });
 
 // Update product
-app.put('/api/products', async (req, res) => {
+// Protected route for updating product
+app.put('/api/products', requireAuth, async (req, res) => {
     try {
         const products = await readProducts();
         const productIndex = products.findIndex(p => p.id == req.body.id);
@@ -287,7 +290,8 @@ app.put('/api/products', async (req, res) => {
 });
 
 // Delete product
-app.delete('/api/products/:id', async (req, res) => {
+// Protected route for deleting product
+app.delete('/api/products/:id', requireAuth, async (req, res) => {
     try {
         const products = await readProducts();
         const filteredProducts = products.filter(p => p.id != req.params.id);
@@ -304,7 +308,8 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 // Upload image endpoint
-app.post('/api/upload', upload.single('image'), (req, res) => {
+// Protected route for image upload
+app.post('/api/upload', requireAuth, upload.single('image'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No image uploaded' });
@@ -333,13 +338,71 @@ app.get('/api/profile', async (req, res) => {
 });
 
 // Update profile
-app.put('/api/profile', async (req, res) => {
+// Protected route for updating profile
+app.put('/api/profile', requireAuth, async (req, res) => {
     try {
         await writeProfile(req.body);
         res.json(req.body);
     } catch (error) {
         res.status(500).json({ error: 'Failed to update profile' });
     }
+});
+
+// Simple session management (in production, use proper session store)
+const sessions = new Map();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Use environment variable in production
+
+// Generate simple session token
+function generateSessionToken() {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// Middleware to check authentication
+function requireAuth(req, res, next) {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !sessions.has(token)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const session = sessions.get(token);
+    if (session.expires < Date.now()) {
+        sessions.delete(token);
+        return res.status(401).json({ error: 'Session expired' });
+    }
+    
+    // Extend session
+    session.expires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+    next();
+}
+
+// Authentication endpoints
+app.post('/api/auth/login', (req, res) => {
+    const { password } = req.body;
+    
+    if (password !== ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Invalid password' });
+    }
+    
+    const token = generateSessionToken();
+    sessions.set(token, {
+        expires: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+        createdAt: Date.now()
+    });
+    
+    res.json({ token, message: 'Login successful' });
+});
+
+app.post('/api/auth/logout', requireAuth, (req, res) => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (token) {
+        sessions.delete(token);
+    }
+    res.json({ message: 'Logout successful' });
+});
+
+app.get('/api/auth/verify', requireAuth, (req, res) => {
+    res.json({ authenticated: true });
 });
 
 // Error handling middleware

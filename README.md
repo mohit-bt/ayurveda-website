@@ -22,6 +22,40 @@ A beautiful, responsive website for an Ayurvedic doctor's product catalog with a
 - **Real-time Updates**: Changes reflect immediately on the main website
 - **Responsive Admin Panel**: Mobile-friendly administration interface
 
+## 🔐 **Admin Authentication**
+
+The admin panel now uses **proper server-side authentication** for security:
+
+### **Security Features:**
+- ✅ **Server-side password verification** (password not visible in client code)
+- ✅ **Session-based authentication** with tokens
+- ✅ **Protected API endpoints** (unauthorized access blocked)
+- ✅ **Session expiration** (24-hour automatic logout)
+- ✅ **Environment variable support** for secure password storage
+
+### **Setting Admin Password:**
+
+**For Development:**
+- Default password: `admin123`
+- Change in server console or set environment variable
+
+**For Production Deployment:**
+1. Create `.env` file (use `.env.example` as template):
+```bash
+ADMIN_PASSWORD=YourSecurePasswordHere123!
+```
+
+2. Or set environment variable on hosting platform:
+```bash
+ADMIN_PASSWORD=YourSecurePasswordHere123!
+```
+
+### **Admin Access:**
+1. Go to `/admin.html` or `/admin`
+2. Enter the admin password
+3. Session remains active for 24 hours
+4. All data changes are now protected and require authentication
+
 ## 🚀 Quick Start
 
 ### Option 1: Static Hosting (GitHub Pages)

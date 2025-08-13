@@ -3,7 +3,7 @@ class AdminPanel {
     constructor() {
         this.products = [];
         this.currentEditId = null;
-        this.adminPassword = 'admin123'; // In production, this should be properly secured
+        this.authToken = localStorage.getItem('admin-token');
         
         this.initElements();
         this.bindEvents();
@@ -89,30 +89,79 @@ class AdminPanel {
         });
     }
 
-    checkAuth() {
-        const isAuthenticated = localStorage.getItem('admin-authenticated') === 'true';
-        if (isAuthenticated) {
-            this.showAdminPanel();
-        } else {
+    async checkAuth() {
+        if (!this.authToken) {
+            this.showLoginModal();
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/auth/verify', {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+            
+            if (response.ok) {
+                this.showAdminPanel();
+            } else {
+                // Token is invalid, remove it
+                localStorage.removeItem('admin-token');
+                this.authToken = null;
+                this.showLoginModal();
+            }
+        } catch (error) {
+            console.error('Auth verification failed:', error);
             this.showLoginModal();
         }
     }
 
-    handleLogin(e) {
+    async handleLogin(e) {
         e.preventDefault();
         const password = document.getElementById('password').value;
         
-        if (password === this.adminPassword) {
-            localStorage.setItem('admin-authenticated', 'true');
-            this.showAdminPanel();
-        } else {
-            this.showError('Invalid password. Please try again.');
-            document.getElementById('password').focus();
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.authToken = data.token;
+                localStorage.setItem('admin-token', data.token);
+                this.showAdminPanel();
+                document.getElementById('password').value = '';
+            } else {
+                this.showError(data.error || 'Login failed');
+                document.getElementById('password').focus();
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showError('Network error. Please try again.');
         }
     }
 
-    handleLogout() {
-        localStorage.removeItem('admin-authenticated');
+    async handleLogout() {
+        if (this.authToken) {
+            try {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.authToken}`
+                    }
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+        
+        localStorage.removeItem('admin-token');
+        this.authToken = null;
         this.showLoginModal();
     }
 
@@ -438,8 +487,8 @@ class AdminPanel {
 
     async saveProduct(product) {
         try {
-            // Try to save to server first
-            const response = await fetch('/api/products', {
+            // Try to save to server with authentication
+            const response = await this.authenticatedFetch('/api/products', {
                 method: this.currentEditId ? 'PUT' : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -451,6 +500,10 @@ class AdminPanel {
                 throw new Error('Server save failed');
             }
         } catch (error) {
+            if (error.message === 'Authentication required') {
+                return; // User will be redirected to login
+            }
+            
             // Fallback to localStorage
             if (this.currentEditId) {
                 const index = this.products.findIndex(p => p.id === this.currentEditId);
@@ -486,8 +539,8 @@ class AdminPanel {
         if (!this.deleteProductId) return;
         
         try {
-            // Try to delete from server
-            const response = await fetch(`/api/products/${this.deleteProductId}`, {
+            // Try to delete from server with authentication
+            const response = await this.authenticatedFetch(`/api/products/${this.deleteProductId}`, {
                 method: 'DELETE'
             });
             
@@ -495,6 +548,10 @@ class AdminPanel {
                 throw new Error('Server delete failed');
             }
         } catch (error) {
+            if (error.message === 'Authentication required') {
+                return; // User will be redirected to login
+            }
+            
             // Fallback to localStorage
             this.products = this.products.filter(p => p.id !== this.deleteProductId);
             localStorage.setItem('ayurveda-products', JSON.stringify(this.products));
@@ -642,7 +699,7 @@ class AdminPanel {
 
     async saveProfile(profile) {
         try {
-            const response = await fetch('/api/profile', {
+            const response = await this.authenticatedFetch('/api/profile', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -654,10 +711,41 @@ class AdminPanel {
                 throw new Error('Server save failed');
             }
         } catch (error) {
+            if (error.message === 'Authentication required') {
+                return; // User will be redirected to login
+            }
+            
             localStorage.setItem('ayurveda-profile', JSON.stringify(profile));
         }
         
         this.profile = profile;
+    }
+
+    // Helper method for authenticated API requests
+    async authenticatedFetch(url, options = {}) {
+        if (!this.authToken) {
+            throw new Error('No authentication token');
+        }
+        
+        const headers = {
+            ...options.headers,
+            'Authorization': `Bearer ${this.authToken}`
+        };
+        
+        const response = await fetch(url, {
+            ...options,
+            headers
+        });
+        
+        if (response.status === 401) {
+            // Token expired or invalid
+            localStorage.removeItem('admin-token');
+            this.authToken = null;
+            this.showLoginModal();
+            throw new Error('Authentication required');
+        }
+        
+        return response;
     }
 
     hideAllModals() {
