@@ -1,0 +1,26 @@
+{
+  "name": "ayurveda-website",
+  "version": "1.0.0",
+  "description": "Ayurvedic doctor's product catalog website",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "echo 'No build step needed'",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": ["ayurveda", "health", "products", "website"],
+  "author": "Dr. Ayurveda",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
